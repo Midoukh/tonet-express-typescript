@@ -5,9 +5,6 @@ import path from "path";
 import { Request, Response, NextFunction } from "express";
 import { catchAsyncErrors } from "../utils/catchAsyncErrors";
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
 //compression
 export const handleImageCompression = async (
   req: Request,
@@ -20,23 +17,28 @@ export const handleImageCompression = async (
       fs.mkdirSync("./uploads");
     }
   });
-  console.log("looking for a file");
-  // if (!req.file) {
-  //   res.status(400).json({ message: "Please upload a file!" });
-  //   next();
-  // }
 
-  console.log(req.files!.file);
+  try {
+    const { buffer, originalname }: any = req.file;
+    const timestamp = new Date().toISOString();
+    const ref = `${timestamp}-${originalname}.webp`;
 
-  const { data: buffer, name: originalname }: any = req.files!.file;
-  const timestamp = new Date().toISOString();
-  const ref = `${timestamp}-${originalname}.webp`;
-
-  await sharp(buffer)
-    .webp({ quality: 20 })
-    .toFile("../uploads" + ref);
-
-  const link = `http://localhost:${req.socket.localPort}/${ref}`;
-  console.log(link);
-  res.status(201).json({ link });
+    //1) compression
+    const newImage = await sharp(buffer).webp({ lossless: true }).toBuffer();
+    const compressedImage = {
+      name: ref,
+      buffer: newImage,
+    };
+    res
+      .status(201)
+      .json({ message: "Image successfully compressed", compressedImage });
+  } catch (error) {
+    res
+      .status(400)
+      .json({
+        message: "cant upload",
+      })
+      .end();
+  }
+  next();
 };

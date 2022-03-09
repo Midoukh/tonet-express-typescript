@@ -1,15 +1,15 @@
 import express, { Application } from "express";
 import cors from "cors";
-import fileUpload from "express-fileupload";
+import path from "path";
 import FeedbackRoute from "./Routes/feedback";
 import ImagesProcessingRoute from "./Routes/imagesProcessing";
 const app: Application = express();
 
 //middlewars
+app.use(express.static(path.join(__dirname, "uploads")));
 app.use(cors());
-app.use(fileUpload());
+// app.use(fileUpload());
 app.use(express.json());
-app.use(express.static("./uploads"));
 
 //routes
 app.use("/api/v1/feedback", FeedbackRoute);
