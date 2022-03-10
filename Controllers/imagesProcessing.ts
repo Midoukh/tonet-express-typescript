@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import multer from "multer";
 import fs from "fs";
+import { readFile } from "fs/promises";
 import path from "path";
 import { Request, Response, NextFunction } from "express";
 import { catchAsyncErrors } from "../utils/catchAsyncErrors";
@@ -24,10 +25,16 @@ export const handleImageCompression = async (
     const ref = `${timestamp}-${originalname}.webp`;
 
     //1) compression
-    const newImage = await sharp(buffer).webp({ lossless: true }).toBuffer();
+    console.log(req.file);
+    console.log(path.join(__dirname, "../", "uploads/"));
+    const newImage = await sharp(buffer).webp({ quality: 50 }).toBuffer();
+
+    const prefix = "data:image/webp;base64,";
+    const base64 = `${prefix}${Buffer.from(newImage).toString("base64")}`;
+
     const compressedImage = {
       name: ref,
-      buffer: newImage,
+      base64,
     };
     res
       .status(201)
