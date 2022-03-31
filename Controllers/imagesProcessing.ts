@@ -1,11 +1,12 @@
 import sharp from "sharp";
 import axios from "axios";
-import multer from "multer";
+import prettyBytes from "pretty-bytes";
+
 import fs from "fs";
-import { readFile } from "fs/promises";
 import path from "path";
 import { Request, Response, NextFunction } from "express";
 import { catchAsyncErrors } from "../utils/catchAsyncErrors";
+import { bytesToMB } from "../utils/conversions";
 
 //compression
 export const handleImageCompression = async (
@@ -62,23 +63,64 @@ export const getImagesMetaData = async (req: Request, res: Response) => {
   }
 };
 
-export const handleUploadImageByUrl = async (req: Request, res: Response) => {
+export const handleUploadImageByUrl = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   const { imageURL } = req.body;
   try {
-    const response = await axios.get(
-      "https://images.pexels.com/photos/9298346/pexels-photo-9298346.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500",
-      {
-        responseType: "arraybuffer",
-      }
-    );
+    const response = await axios.get(imageURL, {
+      responseType: "arraybuffer",
+    });
+    console.log(response);
+    const isImage = response.headers["content-type"].includes("image/jpeg");
 
-    //convert image from base64 to a Buffer
-    // const imgBuffer = Buffer.from(response.data, "base64");
+    //check if data exist on the response object
+    if (!isImage) {
+      res.status(200).json({
+        status: "fail",
+        message: "There's no image in this URL!",
+      });
+      return next();
+    }
 
     //get image metadata
-    const metadata = await sharp(response.data).metadata();
-    console.log(metadata);
-  } catch (error) {
-    console.log(error);
+    const metadata: any = await sharp(response.data).metadata();
+    const { size: imageSize } = metadata;
+
+    //convert image from bytes to mb
+    const imageSizeInMB = bytesToMB(imageSize);
+
+    //limit the image size to 20mb max
+    if (imageSizeInMB > 20) {
+      res.status(500).json({
+        status: "Error!",
+        message: "Image size too big, should be 20mb or less",
+      });
+      return null;
+    }
+
+    //compress image and send it to client
+    const newImage = await sharp(response.data)
+      .webp({ quality: 50 })
+      .toBuffer();
+
+    const prefix = "data:image/webp;base64,";
+    const base64 = `${prefix}${Buffer.from(newImage).toString("base64")}`;
+
+    const compressedImage = {
+      name: `IMG-${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getMilliseconds()}`,
+      base64,
+    };
+    console.log("success");
+    res.status(200).json({
+      status: "Success",
+      compressedImage,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      error,
+    });
   }
 };

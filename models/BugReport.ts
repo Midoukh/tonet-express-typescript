@@ -14,6 +14,10 @@ const BugReportSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
+  ipAdress: {
+    type: String,
+    required: true,
+  },
   createAt: {
     type: Date,
     default: Date.now(),
