@@ -7,6 +7,7 @@ import path from "path";
 import { Request, Response, NextFunction } from "express";
 import { catchAsyncErrors } from "../utils/catchAsyncErrors";
 import { bytesToMB } from "../utils/conversions";
+import { getDominantColor } from "../utils/colors";
 
 //compression
 export const handleImageCompression = async (
@@ -38,9 +39,15 @@ export const handleImageCompression = async (
       name: ref,
       base64,
     };
-    res
-      .status(201)
-      .json({ message: "Image successfully compressed", compressedImage });
+
+    //2) get dominant color
+    const { r, g, b } = await getDominantColor(buffer);
+
+    res.status(201).json({
+      message: "Image successfully compressed",
+      compressedImage,
+      avg_color: `rgb(${r}, ${g}, ${b})`,
+    });
   } catch (error) {
     res
       .status(400)
