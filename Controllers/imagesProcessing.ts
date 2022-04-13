@@ -3,7 +3,7 @@ import axios from "axios";
 import prettyBytes from "pretty-bytes";
 
 import fs from "fs";
-import path from "path";
+import path, { resolve } from "path";
 import { Request, Response, NextFunction } from "express";
 import { catchAsyncErrors } from "../utils/catchAsyncErrors";
 import { bytesToMB } from "../utils/conversions";
@@ -59,9 +59,26 @@ export const handleImageCompression = async (
   next();
 };
 
-export const getImagesMetaData = async (req: Request, res: Response) => {
+export const getImagesMetaData = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    console.log(req.body);
+    const { SourceImg, TargetImg } = req.body;
+
+    if (SourceImg.isUrl) {
+      const srcImg = await getImageFromURL(SourceImg.src, res, next);
+      const meta = await sharp(srcImg).metadata();
+      // console.log("srcImg meta : ", meta);
+      convertImageToLAB(srcImg);
+    }
+    if (TargetImg.isUrl) {
+      const targImg = await getImageFromURL(TargetImg.src, res, next);
+      const meta = await sharp(targImg).metadata();
+      convertImageToLAB(targImg);
+      // console.log("SourceImg meta: ", meta);
+    }
     res.status(201).json({
       message: "Target and Source image successfully received",
     });
@@ -130,4 +147,34 @@ export const handleUploadImageByUrl = async (
       error,
     });
   }
+};
+
+const getImageFromURL = async (
+  url: string,
+  res: Response,
+  next: NextFunction
+): Promise<any> => {
+  const response = await axios.get(url, {
+    responseType: "arraybuffer",
+  });
+
+  const isImage = response.headers["content-type"].includes("image/jpeg");
+
+  //check if data exist on the response object
+  if (!isImage) {
+    res.status(200).json({
+      status: "fail",
+      message: "There's no image in this URL!",
+    });
+    return next();
+  }
+
+  return new Promise((resolve) => resolve(response.data));
+};
+
+const convertImageToLAB = async (image: Buffer): Promise<any> => {
+  //this function convert the input image to the L*a*b* color space
+  const lab = await sharp(image).toColorspace("lab");
+  console.log("The L*A*B color space: \n");
+  console.log(lab);
 };
